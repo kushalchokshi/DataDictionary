@@ -1,7 +1,8 @@
 ﻿using System;
-using System.IO;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
-using Microsoft.Data.SqlClient;
+using Microsoft.SqlServer.Management.Smo;
 
 namespace DataDictionary
 {
@@ -16,20 +17,45 @@ namespace DataDictionary
         {
             ReadArguments(args);
 
-            string connectionString = String.Format("Data Source={2}; Initial Catalog={3}; User ID={0}; Password={1}", userName, password, serverName, dbName);
-            
-            //Read all templates.
-            FileStream fsDefaultTemplate = new FileStream(Environment.CurrentDirectory + @"\Templates\defaultTemplate.html", FileMode.Open, FileAccess.Read);
-            StreamReader swDefaultTemplate = new StreamReader(fsDefaultTemplate);
+            string defaultTemplateContent = ReadTemplate(@"\Templates\defaultTemplate.html");
+            string tablesListTemplateContent = ReadTemplate(@"\Templates\TablesListTemplate.html");
+            string tableDetailsListTemplateContent = ReadTemplate(@"\Templates\TableDetailsListTemplate.html");
+            string columnsListTemplateContent = ReadTemplate(@"\Templates\ColumnsListTemplate.html");
 
-            string defaultTemplateContent = swDefaultTemplate.ReadToEnd();
-            swDefaultTemplate.Close();
-            swDefaultTemplate = null;
-            fsDefaultTemplate.Close();
-            fsDefaultTemplate = null;
-        
-            FileStream fsTableList = new FileStream(Environment.CurrentDirectory + @"\Templates\TablesListTemplate.html", FileMode.Open, FileAccess.Read);
-            StreamReader swTableList = new StreamReader(fsTableList);
+            string connectionString = String.Format("Data Source={2}; Initial Catalog={3}; User ID={0}; Password={1}", userName, password, serverName, dbName);
+
+            StringBuilder sbTablesListContent = new StringBuilder();
+
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                conn.Open();
+
+                string tableQuery = @"SELECT object_id AS TableId, name AS TableName FROM sys.tables ORDER BY 2";
+                
+                string columnQuery = @"SELECT t.name AS TableName, clmns.name AS [ColumnName], 
+	                        CAST(ISNULL(cik.index_column_id, 0) AS bit) AS [InPrimaryKey],
+	                        CAST(ISNULL((select TOP 1 1 from sys.foreign_key_columns AS colfk where colfk.parent_column_id = clmns.column_id and colfk.parent_object_id = clmns.object_id), 0) AS bit) AS [IsForeignKey],
+	                        usrt.name AS [DataType],
+	                        ISNULL(baset.name, N'') AS [SystemType],
+	                        CAST(CASE WHEN baset.name IN (N'nchar', N'nvarchar') AND clmns.max_length <> -1 THEN clmns.max_length/2 ELSE clmns.max_length END AS int) AS [Length],
+	                        CAST(clmns.precision AS int) AS [NumericPrecision],
+	                        CAST(clmns.scale AS int) AS [NumericScale],
+	                        clmns.is_nullable AS [Nullable]
+                        FROM sys.all_columns AS clmns 
+	                        INNER JOIN sys.tables AS t ON t.object_id = clmns.object_id
+	                        LEFT OUTER JOIN sys.indexes AS ik ON ik.object_id = clmns.object_id and 1 = ik.is_primary_key
+	                        LEFT OUTER JOIN sys.index_columns AS cik ON cik.index_id = ik.index_id and cik.column_id = clmns.column_id and cik.object_id = clmns.object_id and 0 = cik.is_included_column
+	                        LEFT OUTER JOIN sys.types AS usrt ON usrt.user_type_id = clmns.user_type_id
+	                        LEFT OUTER JOIN sys.types AS baset ON (baset.user_type_id = clmns.system_type_id and baset.user_type_id = baset.system_type_id) or ((baset.system_type_id = clmns.system_type_id) and (baset.user_type_id = clmns.user_type_id) and (baset.is_user_defined = 0) and (baset.is_assembly_type = 1)) 
+	                        LEFT OUTER JOIN sys.xml_schema_collections AS xscclmns ON xscclmns.xml_collection_id = clmns.xml_collection_id
+	                        LEFT OUTER JOIN sys.schemas AS s2clmns ON s2clmns.schema_id = xscclmns.schema_id
+                        ORDER BY t.name, clmns.column_id ASC";
+
+                string defaultValueQuery = @"SELECT t.name AS TableName, c.name AS ColumnName, d.definition AS DefaultValue
+                        FROM sys.columns c 
+                            INNER JOIN sys.default_constraints d ON c.default_object_id = d.object_id
+                            INNER JOIN sys.tables AS t ON t.object_id = c.object_id
+						ORDER BY t.name, c.name";
 
             string tableListTemplateContent = swTableList.ReadToEnd();
             swTableList.Close();
@@ -192,6 +218,50 @@ namespace DataDictionary
             Console.WriteLine("Press any key to exit");
             Console.ReadKey();
             Environment.Exit(exitCodeToShow);
+        }
+
+        static string ReadTemplate(string templateFilePath)
+        {
+            FileStream fsTemplate = new FileStream(Environment.CurrentDirectory + templateFilePath, FileMode.Open, FileAccess.Read);
+            StreamReader swTemplate = new StreamReader(fsTemplate);
+
+            string templateContent = swTemplate.ReadToEnd();
+            swTemplate.Close();
+            swTemplate = null;
+            fsTemplate.Close();
+            fsTemplate = null;
+
+            return templateContent;
+        }
+
+        static void WriteContent(string content, string directory, string fileName)
+        {
+            if (!Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            FileStream fs = new FileStream(directory + "/" + fileName, FileMode.Create, FileAccess.Write);
+            StreamWriter sw = new StreamWriter(fs);
+
+            sw.Write(content);
+
+            sw.Close();
+            sw = null;
+            fs.Close();
+            fs = null;
+        }
+
+        static DataTable PopulateDataTableWithQueryResults(SqlConnection connObj, string query)
+        {
+            DataTable dt = new DataTable();
+            // Use SqlDataAdapter to fill the DataTable
+            using (SqlDataAdapter adapter = new SqlDataAdapter(query, connObj))
+            {
+                adapter.Fill(dt);
+            }
+
+            return dt;
         }
     }
 }
