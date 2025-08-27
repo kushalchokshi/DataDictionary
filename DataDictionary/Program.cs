@@ -7,7 +7,7 @@ using System.Data.SqlClient;
 using System.IO;
 using System.Data;
 
-namespace DataDictionaryApp
+namespace DataDictionary
 {
     class Program
     {

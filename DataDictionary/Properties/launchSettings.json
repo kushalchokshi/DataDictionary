@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "DataDictionary": {
-      "commandName": "Project",
-      "commandLineArgs": "-Slocalhost -Ukushalc -Pkushal -DTestDB"
-    }
-  }
-}
