@@ -1,0 +1,1 @@
+This project creates data dictionary in HTML format from SQL Server database. It is a command-line program that accepts 4 arguments - /s<servername> /D<databaename> /U<username> /P<password>. It generates one html file per table with a default file listing all tables. It also uses HTML templates that can be modified for any look and feel.
