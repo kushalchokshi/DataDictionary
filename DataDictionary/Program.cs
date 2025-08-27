@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
-using Microsoft.SqlServer.Management.Smo;
+using Microsoft.Data.SqlClient;
 
 namespace DataDictionary
 {
@@ -16,18 +16,8 @@ namespace DataDictionary
         {
             ReadArguments(args);
 
-            Microsoft.SqlServer.Management.Common.ServerConnection serverConnection = new Microsoft.SqlServer.Management.Common.ServerConnection("localhost", "kushalc", "kushal");
-            Server server = new Server(serverConnection);
-
-            // Select the DB
-            Database objDatabase = server.Databases[dbName];
-
-            if (objDatabase == null)
-            {
-                Console.WriteLine("Database not found");
-                ExitOut(0);
-            }
-
+            string connectionString = String.Format("Data Source={2}; Initial Catalog={3}; User ID={0}; Password={1}", userName, password, serverName, dbName);
+            
             //Read all templates.
             FileStream fsDefaultTemplate = new FileStream(Environment.CurrentDirectory + @"\Templates\defaultTemplate.html", FileMode.Open, FileAccess.Read);
             StreamReader swDefaultTemplate = new StreamReader(fsDefaultTemplate);
