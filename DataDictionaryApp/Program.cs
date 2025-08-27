@@ -11,10 +11,10 @@ namespace DataDictionaryApp
 {
     class Program
     {
-        static string serverName = "100.96.195.36";
-        static string dbName = "LDCQA1Regression";
-        static string userName = "kushalc";
-        static string password = "kushal";
+        static string serverName = "";
+        static string dbName = "";
+        static string userName = "";
+        static string password = "";
 
         static void Main(string[] args)
         {
@@ -33,8 +33,10 @@ namespace DataDictionaryApp
             {
                 conn.Open();
 
+                //Query to retrieve all tables.
                 string tableQuery = @"SELECT object_id AS TableId, name AS TableName FROM sys.tables ORDER BY 2";
                 
+                //Query to retrieve all column details.
                 string columnQuery = @"SELECT t.name AS TableName, clmns.name AS [ColumnName], 
 	                        CAST(ISNULL(cik.index_column_id, 0) AS bit) AS [InPrimaryKey],
 	                        CAST(ISNULL((select TOP 1 1 from sys.foreign_key_columns AS colfk where colfk.parent_column_id = clmns.column_id and colfk.parent_object_id = clmns.object_id), 0) AS bit) AS [IsForeignKey],
@@ -54,12 +56,14 @@ namespace DataDictionaryApp
 	                        LEFT OUTER JOIN sys.schemas AS s2clmns ON s2clmns.schema_id = xscclmns.schema_id
                         ORDER BY t.name, clmns.column_id ASC";
 
+                //Query to retrieve default constraints for all columns
                 string defaultValueQuery = @"SELECT t.name AS TableName, c.name AS ColumnName, d.definition AS DefaultValue
                         FROM sys.columns c 
                             INNER JOIN sys.default_constraints d ON c.default_object_id = d.object_id
                             INNER JOIN sys.tables AS t ON t.object_id = c.object_id
 						ORDER BY t.name, c.name";
 
+                //Query to retrieve description for all columns.
                 string columnDescriptionQuery = @"SELECT t.name AS TableName, c.name AS ColumnName, ep.value AS ColumnDescription
                         FROM sys.extended_properties ep
 	                        INNER JOIN sys.columns c ON ep.major_id = c.object_id AND ep.minor_id = c.column_id
